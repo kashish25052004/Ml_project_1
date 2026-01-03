@@ -5,4 +5,4 @@ matpoltlib
 scikit-learn
 # catboost
 
--e .
+# -e .
