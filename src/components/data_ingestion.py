@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from dataclasses import dataclass
 
 from src.components.data_transformation import DataTransformation
+from src.components.model_trainer import ModelTrainer
 
 @dataclass
 class DataIngestionConfig:
@@ -30,7 +31,7 @@ class DataIngestion:
             df.to_csv(self.ingestion.raw_data_path,index = False,header = True)
 
             logging.info('train test split initiated')
-            train_set,test_set = train_test_split(df,test_size = 0.2,random_state = 42)
+            train_set,test_set = train_test_split(df,test_size = 0.25,stratify=df["label"],random_state=42)
 
             train_set.to_csv(self.ingestion.train_data_path,index = False,header = True)
 
@@ -57,6 +58,12 @@ if __name__ == "__main__":
 
     data_transformation = DataTransformation()
     train_arr,test_arr,_ = data_transformation.initiate_data_transformation(train_data,test_data)
+
+    model_train = ModelTrainer()
+    # pre_score = 
+    model_train.initiate_model_trainer(train_arr,test_arr)
+
+    # print(pre_score)
 
 
 
