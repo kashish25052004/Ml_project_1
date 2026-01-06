@@ -45,14 +45,31 @@ class ModelTrainer:
 
             models = {
                 "Random Forest": RandomForestClassifier(random_state=42),
-                # "Decision Tree": DecisionTreeClassifier(),
+                # "Decision Tree": DecisionTreeClassifier(random_state = 42),
                 # "Gradient Boosting": GradientBoostingClassifier(),
                 # "Logistic Regression": LogisticRegression(),
                 # "XGBClassifier":XGBClassifier(),
                 # "AdaBoost classifier": AdaBoostClassifier(),
             }
+            params ={
+                "Decision Tree":{
+                    'criterion':['gini', 'entropy', 'log_loss'],
+                    'splitter':['best','random'],
+                    'max_depth':[3]
 
-            model_report:dict = evaluate_models(X_train = X_train,Y_train = Y_train,X_test = X_test,Y_test = Y_test,models = models)
+                },
+                "Random Forest" :{
+                    "n_estimators": [50, 100, 200],
+                    "max_depth": [None, 5, 10],
+                    "min_samples_split": [2, 5, 10],
+                    "min_samples_leaf": [1, 2, 4],
+                    "max_features": ["sqrt", "log2"],
+                    "bootstrap": [True]
+
+                }
+            }
+
+            model_report:dict = evaluate_models(X_train = X_train,Y_train = Y_train,X_test = X_test,Y_test = Y_test,models = models,params= params)
 
             best_model_score = max(model_report.values())
 
