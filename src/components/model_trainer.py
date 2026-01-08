@@ -1,5 +1,6 @@
 import os
 import sys
+import pandas as pd
 
 from dataclasses import dataclass
 from src.logger import logging
@@ -52,12 +53,12 @@ class ModelTrainer:
                 # "AdaBoost classifier": AdaBoostClassifier(),
             }
             params ={
-                "Decision Tree":{
-                    'criterion':['gini', 'entropy', 'log_loss'],
-                    'splitter':['best','random'],
-                    'max_depth':[3]
+                # "Decision Tree":{
+                #     'criterion':['gini', 'entropy', 'log_loss'],
+                #     'splitter':['best','random'],
+                #     'max_depth':[3]
 
-                },
+                # },
                 "Random Forest" :{
                     "n_estimators": [50, 100, 200],
                     "max_depth": [None, 5, 10],
@@ -69,7 +70,7 @@ class ModelTrainer:
                 }
             }
 
-            model_report:dict = evaluate_models(X_train = X_train,Y_train = Y_train,X_test = X_test,Y_test = Y_test,models = models,params= params)
+            model_report,best_estimators= evaluate_models(X_train = X_train,Y_train = Y_train,X_test = X_test,Y_test = Y_test,models = models,params= params)
 
             best_model_score = max(model_report.values())
 
@@ -77,12 +78,14 @@ class ModelTrainer:
                 list(model_report.values()).index(best_model_score)
             ]
 
-            best_model = models[best_model_name]
+            best_model = best_estimators[best_model_name]
 
             if best_model_score<0.6 :
                 raise CustomException("No best model found")
             
             logging.info(f"best model found on both training and testing dataset")
+
+            best_model.fit(X_train,Y_train)
 
             save_object(
                 file_path = self.model_trainer.trained_model_file_path,
@@ -91,9 +94,31 @@ class ModelTrainer:
 
             logging.info(f"saved as .pkl of model.pkl")
 
-            best_model.fit(X_train,Y_train)
+            
+            # print(X_test)
 
             predicted = best_model.predict(X_test)
+
+            # df = pd.DataFrame(
+            #     {
+            #         "mousePointsCount": [70],
+            #         "avgSpeed": [0.051359], 
+            #         "speedStdDev": [0.015887],  
+            #         "accelStdDev":[0.023147], 
+            #         "jitterCount":[3] ,
+            #         "angleStd":  [0.679063],
+            #         "diffScore" : [1.658425], 
+            #         "hoverTime" :  [0]  ,
+            #         "hesitation" : [24],  
+            #         "clickLatency": [0],
+            #         "clickOffset":[187.744432]  ,
+            #         "isChecked": [1],
+                
+            #     }
+            # )
+
+            # predicted = best_model.predict(df)
+            # print(predicted)
 
             # p_score = precision_score(Y_test,predicted)
 

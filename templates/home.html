@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Human Bot Behaviour Test</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;   
+      align-items: center;       
+      background: #f4f6f8;
+      font-family: Arial, sans-serif;
+    }
+
+    .form-box {
+      width: 420px;              
+      padding: 30px;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+
+    .form-box h3 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    label {
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-box">
+    <h3>Login</h3>
+
+    <form id="mainForm">
+      <label>Name:</label>
+      <input type="text" id="name" required /><br /><br />
+
+      <label>
+        <input type="checkbox" id="robotCheck" />
+        I am not a robot
+      </label><br /><br />
+
+      <button type="submit">Submit</button>
+    </form>
+    <h3 id="result"></h3>
+  </div>
+
+<script>
+/* ===================== Mouse Tracking ===================== */
+let mouseMovements = [];
+let lastMouse = {x:0,y:0};
+let pageLoadTime = Date.now();
+let firstMoveTime = 0;
+let hoverStart = 0;
+let hoverTime = 0;
+let clickTime = 0;
+let hover =0;
+let clickLatency = 0;
+
+document.addEventListener("mousemove", (e)=>{
+  mouseMovements.push({x:e.clientX, y:e.clientY, t:Date.now()});
+  lastMouse = {x:e.clientX,y:e.clientY};
+  if(!firstMoveTime) firstMoveTime = Date.now();
+});
+
+/* ===================== Hover Tracking ===================== */
+let checkbox = document.getElementById("robotCheck");
+checkbox.addEventListener("mouseenter", ()=> {hoverStart = Date.now(); hover = Date.now();});
+
+ 
+
+
+checkbox.addEventListener("mouseleave", ()=>{
+  if(hoverStart) { hoverTime += Date.now() - hoverStart; hoverStart = 0; }
+});
+
+
+checkbox.addEventListener("click", () => {
+  let now = Date.now();
+  if (hover) {
+    clickLatency = now - hover;
+  } else {
+    clickLatency = 0; // bot
+  }
+});
+
+
+/* ===================== Feature Extraction ===================== */
+function computeMouseFeatures() {
+  let N = mouseMovements.length;
+  if (N < 2) return {};
+
+  let speeds = [], accels = [], angles = [], curv = [];
+  let jitter = 0;
+
+  for(let i=1;i<N;i++){
+    let dx = mouseMovements[i].x - mouseMovements[i-1].x;
+    let dy = mouseMovements[i].y - mouseMovements[i-1].y;
+    let dt = mouseMovements[i].t - mouseMovements[i-1].t || 1;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    let v = dist / dt;
+    speeds.push(v);
+
+    if(i > 1){
+      let dv = v - speeds[i-2];
+      accels.push(dv);
+
+      let pDX = mouseMovements[i-1].x - mouseMovements[i-2].x;
+      let pDY = mouseMovements[i-1].y - mouseMovements[i-2].y;
+      let a1 = Math.atan2(dy, dx);
+      let a2 = Math.atan2(pDY, pDX);
+      let da = a1 - a2;
+      da = Math.atan2(Math.sin(da), Math.cos(da));   // normalize to [-π, +π]
+      angles.push(da);
+
+      let s1 = pDX!==0 ? pDY/pDX : 0;
+      let s2 = dx!==0 ? dy/dx : 0;
+      curv.push(s2 - s1);
+
+      
+      let ddx = mouseMovements[i].x - 2*mouseMovements[i-1].x + mouseMovements[i-2].x;
+      let ddy = mouseMovements[i].y - 2*mouseMovements[i-1].y + mouseMovements[i-2].y;
+
+      let denom = Math.pow(dx*dx + dy*dy, 1.5) || 1;
+      let kappa = Math.abs(dx * ddy - dy * ddx) / denom;
+      curv.push(kappa);
+
+    }
+    if(dist < 2) jitter++;
+  }
+
+  const variance = arr => {
+    if(!arr.length) return 0;
+    let avg = arr.reduce((a,b)=>a+b,0)/arr.length;
+    return arr.reduce((a,b)=>a+(b-avg)*(b-avg),0)/arr.length;
+  };
+
+  // const mad = arr => {
+  //   if(!arr.length) return 0;
+  //   let med = arr.sort()[Math.floor(arr.length/2)];
+  //   return arr.map(v => Math.abs(v - med))
+  //             .sort()[Math.floor(arr.length/2)];
+  // };
+
+
+  return {
+    mousePointsCount: N,
+    avgSpeed: speeds.reduce((a,b)=>a+b,0)/speeds.length,
+    speedStdDev: Math.sqrt(variance(speeds)),
+    accelStdDev: Math.sqrt(variance(accels)),
+    angleStd: Math.sqrt(variance(angles)),
+    diffScore: Math.sqrt(variance(curv)),
+    jitterCount: jitter
+  };
+}
+
+/* ===================== Click Offset ===================== */
+function computeClickOffset(){
+  let box = checkbox.getBoundingClientRect();
+  let cx = box.left + box.width/2;
+  let cy = box.top + box.height/2;
+  return Math.sqrt((lastMouse.x-cx)**2 + (lastMouse.y-cy)**2);
+}
+
+
+/* ===================== Submit Handler ===================== */
+document.getElementById("mainForm").addEventListener("submit", async(e)=>{
+  e.preventDefault();
+
+  let f = computeMouseFeatures();
+  let hesitation = firstMoveTime ? firstMoveTime - pageLoadTime : 0;
+  // let clickLatency = clickTime && hoverStart ? (clickTime - hoverStart) : 0;
+
+  let data = {
+    // timestamp: Date.now(),
+    // name: document.getElementById("name").value,
+    ...f,
+    // overshootBeforeClick: 0,
+    hoverTime,
+    hesitation,
+    clickLatency,
+    clickOffset: computeClickOffset(),
+    // typingStdDev: 0,
+    // interActionGapAvg: 0,
+    // pageFocusLost: false,
+    isChecked: checkbox.checked
+  };
+
+  let response = await fetch("/test_data", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(data)
+  });
+
+  let result = await response.json();
+
+  document.getElementById("result").innerText =
+    result.prediction === 1 ? "BOT detected 🤖" : "HUMAN detected 👤";
+
+  alert("Prediction received");
+
+});
+</script>
+</body>
+</html>

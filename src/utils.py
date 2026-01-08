@@ -24,9 +24,19 @@ def save_object(file_path,obj):
     except Exception as e:
         raise CustomException(e,sys)
     
+def load_object(file_path):
+    try:
+        with open(file_path,"rb")  as file_obj:
+            return pickle.load(file_obj)
+        
+    except Exception as e:
+        raise CustomException(e,sys)
+
+
 def evaluate_models(X_train,Y_train,X_test,Y_test,models,params):
     try:
         report ={}
+        best_estimator ={}
 
         # for i in range(len(list(models))):
         #     model = list(models.values())[i]
@@ -64,8 +74,9 @@ def evaluate_models(X_train,Y_train,X_test,Y_test,models,params):
             best_model = grid.best_estimator_
 
             report[model_name] = best_score
+            best_estimator[model_name] = best_model
 
-        return report
+        return report,best_estimator
         
     except Exception as e:
         raise CustomException(e,sys)
